@@ -6,6 +6,7 @@ import EmployeeForm from './pages/EmployeeForm.js';
 import DepartmentList from './pages/DepartmentList.js';
 import DepartmentForm from './pages/DepartmentForm.js';
 import ProjectList from './pages/ProjectList.js';
+import ProjectForm from './pages/ProjectForm.js';
 import TaskList from './pages/TaskList.js';
 
 function App() {
@@ -22,6 +23,8 @@ function App() {
             <Route path="/departments/new" element={<DepartmentForm />} />
             <Route path="/departments/edit/:id" element={<DepartmentForm />} />
             <Route path="/projects" element={<ProjectList />} />
+            <Route path="/projects/new" element={<ProjectForm />} />
+            <Route path="/projects/edit/:id" element={<ProjectForm />} />
             <Route path="/tasks" element={<TaskList />} />
           </Routes>
         </div>

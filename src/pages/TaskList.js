@@ -194,9 +194,9 @@ function TaskList() {
                             </a>
                           </li>
                         )}
-                        {task.statut !== 'TERMINEE' && (
+                        {task.statut !== 'TERMINÉE' && (
                           <li>
-                            <a onClick={() => handleStatusChange(task, 'TERMINEE')}>
+                            <a onClick={() => handleStatusChange(task, 'TERMINÉE')}>
                               Marquer comme Terminée
                             </a>
                           </li>

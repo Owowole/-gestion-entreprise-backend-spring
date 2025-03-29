@@ -1,24 +1,27 @@
 // Fichier: src/pages/ProjectList.js
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { projectService, employeeService } from '../services/api';
+import { projectService, employeeService, taskService } from '../services/api';
 
 function ProjectList() {
   const [projects, setProjects] = useState([]);
   const [employees, setEmployees] = useState([]);
-  const [newProject, setNewProject] = useState({
-    nom: '',
-    description: '',
-    dateDebut: '',
-    dateFin: '',
-    statut: 'EN_COURS'
-  });
-  const [selectedEmployee, setSelectedEmployee] = useState('');
+  const [projectTasks, setProjectTasks] = useState({});
+  const [selectedProject, setSelectedProject] = useState(null);
 
   useEffect(() => {
     fetchProjects();
     fetchEmployees();
   }, []);
+
+  useEffect(() => {
+    // Fetch tasks for each project when projects change
+    if (projects.length > 0) {
+      projects.forEach(project => {
+        fetchProjectTasks(project.id);
+      });
+    }
+  }, [projects]);
 
   const fetchProjects = async () => {
     try {
@@ -38,28 +41,34 @@ function ProjectList() {
     }
   };
 
-  const handleCreate = async (e) => {
-    e.preventDefault();
+  const fetchProjectTasks = async (projectId) => {
     try {
-      const createdProject = await projectService.create(newProject);
-      
-      // Si un employé est sélectionné, l'assigner au projet
-      if (selectedEmployee) {
-        await projectService.assignEmployee(createdProject.data.id, selectedEmployee);
-      }
-
-      fetchProjects();
-      setNewProject({
-        nom: '',
-        description: '',
-        date_début: '',
-        date_fin: '',
-        statut: 'EN_COURS'
-      });
-      setSelectedEmployee('');
+      const response = await taskService.getByProject(projectId);
+      setProjectTasks(prev => ({
+        ...prev,
+        [projectId]: response.data
+      }));
     } catch (error) {
-      console.error('Erreur lors de la création du projet', error);
+      console.error('Erreur lors de la récupération des tâches du projet', error);
     }
+  };
+
+  const calculateProjectProgress = (projectId) => {
+    const tasks = projectTasks[projectId] || [];
+    if (tasks.length === 0) return 0;
+
+    const completedTasks = tasks.filter(task => task.statut === 'TERMINEE').length;
+    return Math.round((completedTasks / tasks.length) * 100);
+  };
+
+  const getTaskStatusCount = (projectId) => {
+    const tasks = projectTasks[projectId] || [];
+    return {
+      total: tasks.length,
+      todo: tasks.filter(task => task.statut === 'A_FAIRE').length,
+      inProgress: tasks.filter(task => task.statut === 'EN_COURS').length,
+      completed: tasks.filter(task => task.statut === 'TERMINEE').length
+    };
   };
 
   const handleDelete = async (id) => {
@@ -71,114 +80,165 @@ function ProjectList() {
     }
   };
 
+  const getStatusBadgeColor = (status) => {
+    switch (status) {
+      case 'A_FAIRE':
+        return 'badge-warning';
+      case 'EN_COURS':
+        return 'badge-info';
+      case 'TERMINEE':
+        return 'badge-success';
+      default:
+        return 'badge-ghost';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'A_FAIRE':
+        return 'À faire';
+      case 'EN_COURS':
+        return 'En cours';
+      case 'TERMINEE':
+        return 'Terminée';
+      default:
+        return status;
+    }
+  };
+
   return (
     <div className="card bg-base-100 shadow-xl">
       <div className="card-body">
-        <h2 className="card-title">Gestion des Projets</h2>
-        
-        <form onSubmit={handleCreate} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <input 
-              type="text" 
-              placeholder="Nom du projet" 
-              className="input input-bordered"
-              value={newProject.nom}
-              onChange={(e) => setNewProject({...newProject, nom: e.target.value})}
-              required
-            />
-            <select
-              className="select select-bordered"
-              value={newProject.statut}
-              onChange={(e) => setNewProject({...newProject, statut: e.target.value})}
-            >
-              <option value="EN_COURS">En cours</option>
-              <option value="TERMINE">Terminé</option>
-            </select>
-          </div>
-          
-          <textarea 
-            placeholder="Description du projet" 
-            className="textarea textarea-bordered w-full"
-            value={newProject.description}
-            onChange={(e) => setNewProject({...newProject, description: e.target.value})}
-          />
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="form-control">
-              <label className="label">Date de début</label>
-              <input 
-                type="date" 
-                className="input input-bordered"
-                value={newProject.date_début}
-                onChange={(e) => setNewProject({...newProject, dateDebut: e.target.value})}
-                required
-              />
-            </div>
-            <div className="form-control">
-              <label className="label">Date de fin</label>
-              <input 
-                type="date" 
-                className="input input-bordered"
-                value={newProject.dateFin}
-                onChange={(e) => setNewProject({...newProject, dateFin: e.target.value})}
-                required
-              />
-            </div>
-          </div>
-
-     
-          <button type="submit" className="btn btn-primary w-full">
-            Créer un projet
-          </button>
-        </form>
-
-        <div className="divider"></div>
-
-        <div className="overflow-x-auto">
-          <table className="table w-full">
-            <thead>
-              <tr>
-                <th>Nom</th>
-                <th>Description</th>
-                <th>Statut</th>
-                <th>Date de début</th>
-                <th>Date de fin</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {projects.map((project) => (
-                <tr key={project.id}>
-                  <td>{project.nom}</td>
-                  <td>{project.description}</td>
-                  <td>
-                    <span className={`badge ${project.statut === 'TERMINE' ? 'badge-success' : 'badge-warning'}`}>
-                      {project.statut === 'EN_COURS' ? 'En cours' : 'Terminé'}
-                    </span>
-                  </td>
-                  <td>{project.dateDebut}</td>
-                  <td>{project.dateFin}</td>
-                  <td>
-                    <div className="flex gap-2">
-                      <Link 
-                        to={`/projects/edit/${project.id}`} 
-                        className="btn btn-sm btn-outline btn-primary"
-                      >
-                        Modifier
-                      </Link>
-                      <button 
-                        className="btn btn-sm btn-outline btn-error"
-                        onClick={() => handleDelete(project.id)}
-                      >
-                        Supprimer
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="card-title">Gestion des Projets</h2>
+          <Link 
+            to="/projects/new" 
+            className="btn btn-primary"
+          >
+            Nouveau Projet
+          </Link>
         </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {projects.map((project) => {
+            const progress = calculateProjectProgress(project.id);
+            const taskStats = getTaskStatusCount(project.id);
+            
+            return (
+              <div key={project.id} className="card bg-base-200">
+                <div className="card-body">
+                  <h3 className="card-title">{project.nom}</h3>
+                  <p className="text-sm opacity-70">{project.description}</p>
+                  
+                  <div className="mt-4">
+                    <div className="flex justify-between mb-2">
+                      <span className="text-sm font-medium">Progression</span>
+                      <span className="text-sm font-medium">{progress}%</span>
+                    </div>
+                    <progress 
+                      className="progress progress-primary w-full" 
+                      value={progress} 
+                      max="100"
+                    />
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium">Date de début:</span>
+                      <span>{new Date(project.dateDebut).toLocaleDateString('fr-FR')}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium">Date de fin:</span>
+                      <span>{new Date(project.dateFin).toLocaleDateString('fr-FR')}</span>
+                    </div>
+                  </div>
+
+                  <div className="stats shadow mt-4">
+                    <div className="stat">
+                      <div className="stat-title">Total</div>
+                      <div className="stat-value">{taskStats.total}</div>
+                    </div>
+                    <div className="stat">
+                      <div className="stat-title">À faire</div>
+                      <div className="stat-value text-warning">{taskStats.todo}</div>
+                    </div>
+                    <div className="stat">
+                      <div className="stat-title">En cours</div>
+                      <div className="stat-value text-info">{taskStats.inProgress}</div>
+                    </div>
+                    <div className="stat">
+                      <div className="stat-title">Terminées</div>
+                      <div className="stat-value text-success">{taskStats.completed}</div>
+                    </div>
+                  </div>
+
+                  <div className="card-actions justify-end mt-4">
+                    <button
+                      className="btn btn-sm btn-outline btn-info"
+                      onClick={() => setSelectedProject(project)}
+                    >
+                      Voir les tâches
+                    </button>
+                    <Link 
+                      to={`/projects/edit/${project.id}`} 
+                      className="btn btn-sm btn-outline btn-primary"
+                    >
+                      Modifier
+                    </Link>
+                    <button 
+                      className="btn btn-sm btn-outline btn-error"
+                      onClick={() => handleDelete(project.id)}
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {selectedProject && (
+          <div className="modal modal-open">
+            <div className="modal-box w-11/12 max-w-5xl">
+              <h3 className="font-bold text-lg mb-4">
+                Tâches du projet {selectedProject.nom}
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="table w-full">
+                  <thead>
+                    <tr>
+                      <th>Description</th>
+                      <th>Employé</th>
+                      <th>Statut</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {projectTasks[selectedProject.id]?.map((task) => (
+                      <tr key={task.id}>
+                        <td>{task.description}</td>
+                        <td>{task.employee?.prenom} {task.employee?.nom}</td>
+                        <td>
+                          <span className={`badge ${getStatusBadgeColor(task.statut)}`}>
+                            {getStatusText(task.statut)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="modal-action">
+                <button
+                  className="btn"
+                  onClick={() => setSelectedProject(null)}
+                >
+                  Fermer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

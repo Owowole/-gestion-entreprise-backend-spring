@@ -10,6 +10,8 @@ export const employeeService = {
   delete: (id) => axios.delete(`${BASE_URL}/employees/${id}`),
   search: (criteria) =>
     axios.get(`${BASE_URL}/employees/search`, { params: criteria }),
+  assignDepartment: (employeeId, departmentId) =>
+    axios.put(`${BASE_URL}/employees/${employeeId}/assign-department/${departmentId}`),
 };
 
 export const departmentService = {
@@ -37,5 +39,7 @@ export const taskService = {
   getByEmployee: (employeeId) =>
     axios.get(`${BASE_URL}/tasks/employee/${employeeId}`),
   getByProject: (projectId) =>
-    axios.get(`${BASE_URL}/tasks/project/${projectId}`),
+    axios.get(`${BASE_URL}/tasks/by-project/${projectId}`),
+  updateStatus: (id, status) =>
+    axios.put(`${BASE_URL}/tasks/${id}/status`, { statut: status }),
 };
